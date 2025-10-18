@@ -1,20 +1,100 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
 <head>
-  <style>
-    html, body {
-      margin: 0;
-      height: 100%;
-    }
-    iframe {
-      border: none;
-      width: 100%;
-      height: 100%;
-    }
-  </style>
+<meta charset="utf-8">
+<title>Traffic Jam Fever - Levels</title>
+<style>
+  body{margin:0;font-family:sans-serif;background:#eee;overflow:hidden}
+  #ui{background:#fff;padding:8px;border-bottom:1px solid #ccc;display:flex;gap:8px;align-items:center}
+  button{padding:6px 10px;cursor:pointer}
+  #info{margin-left:auto;font-size:14px;color:#555}
+  canvas{background:#f7f7f7;display:block;margin:auto;border:1px solid #aaa}
+</style>
 </head>
 <body>
-  <iframe src="https://luminal.eixos.pt/"></iframe>
+<div id="ui">
+  <button id="drawBtn">Draw</button>
+  <button id="eraseBtn">Erase</button>
+  <button id="startBtn">Start</button>
+  <button id="nextBtn">Next Level</button>
+  <span id="levelInfo">Level 1</span>
+  <div id="info">Red = heavy traffic. Draw bypass roads.</div>
+</div>
+<canvas id="c" width="900" height="600"></canvas>
+<script>
+const canvas=document.getElementById("c"),ctx=canvas.getContext("2d");
+let w=canvas.width,h=canvas.height;
+let mode="draw",drawing=false,curPath=[],roads=[],cars=[],running=false,level=1;
+drawBtn.onclick=()=>mode="draw"; eraseBtn.onclick=()=>mode="erase";
+startBtn.onclick=()=>running=!running;
+nextBtn.onclick=()=>{level++;setupLevel(level)};
+function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y);}
+function addRoad(points){roads.push({pts:points,id:roads.length});}
+function draw(){
+ ctx.clearRect(0,0,w,h);
+ ctx.lineWidth=10;
+ for(let r of roads){ctx.beginPath();ctx.strokeStyle="#333";ctx.moveTo(r.pts[0].x,r.pts[0].y);
+ for(let p of r.pts)ctx.lineTo(p.x,p.y);ctx.stroke();}
+ for(let car of cars){
+   ctx.save();ctx.translate(car.x,car.y);ctx.rotate(car.a);
+   ctx.fillStyle=car.red?"#d22":"#2b9";ctx.fillRect(-6,-3,12,6);ctx.restore();
+ }
+ if(drawing&&curPath.length>1){ctx.beginPath();ctx.strokeStyle="#222";ctx.moveTo(curPath[0].x,curPath[0].y);
+ for(let p of curPath)ctx.lineTo(p.x,p.y);ctx.stroke();}
+}
+canvas.onmousedown=e=>{
+ const r=canvas.getBoundingClientRect();let x=e.clientX-r.left,y=e.clientY-r.top;
+ if(mode=="draw"){drawing=true;curPath=[{x,y}];}
+ else if(mode=="erase"){roads=roads.filter(rd=>rd.pts.every(p=>dist(p,{x,y})>10));}
+}
+canvas.onmousemove=e=>{
+ if(!drawing)return;const r=canvas.getBoundingClientRect();
+ let x=e.clientX-r.left,y=e.clientY-r.top;let last=curPath[curPath.length-1];
+ if(dist(last,{x,y})>5)curPath.push({x,y});
+}
+canvas.onmouseup=e=>{
+ if(drawing){drawing=false;if(curPath.length>1)addRoad(curPath);curPath=[];}
+}
+function spawnCar(){
+ if(roads.length==0)return;
+ let r=roads[Math.floor(Math.random()*roads.length)];
+ let a=r.pts[0],b=r.pts[r.pts.length-1];
+ let s=Math.random()<0.5?a:b, t=s==a?1:-1;
+ cars.push({x:s.x,y:s.y,a:Math.atan2(b.y-a.y,b.x-a.x)*t,v:1+Math.random(),r:r,i:0,red:false});
+}
+function moveCars(dt){
+ for(let c of cars){
+   c.i+=c.v*dt*40;
+   let p1=c.r.pts[0],p2=c.r.pts[c.r.pts.length-1];
+   c.x=p1.x+(p2.x-p1.x)*(c.i/100);
+   c.y=p1.y+(p2.y-p1.y)*(c.i/100);
+   c.a=Math.atan2(p2.y-p1.y,p2.x-p1.x);
+   if(c.i>100)c.i=0;
+ }
+ let cap=5;
+ for(let r of roads){
+   let count=cars.filter(c=>c.r==r&&c.i<100).length;
+   for(let c of cars)if(c.r==r)c.red=count>cap;
+ }
+}
+function loop(ts){
+ draw();
+ if(running){
+   if(Math.random()<0.02*level)spawnCar();
+   moveCars(0.016);
+ }
+ requestAnimationFrame(loop);
+}
+function setupLevel(n){
+ roads=[];cars=[];running=false;document.getElementById("levelInfo").innerText="Level "+n;
+ if(n==1){addRoad([{x:100,y:300},{x:800,y:300}]);addRoad([{x:450,y:100},{x:450,y:500}]);}
+ if(n==2){addRoad([{x:100,y:300},{x:800,y:300}]);addRoad([{x:450,y:100},{x:450,y:500}]);
+          addRoad([{x:100,y:150},{x:800,y:150}]);}
+ if(n==3){addRoad([{x:100,y:300},{x:800,y:300}]);addRoad([{x:450,y:100},{x:450,y:500}]);
+          addRoad([{x:100,y:150},{x:800,y:150}]);addRoad([{x:200,y:500},{x:700,y:120}]);}
+}
+setupLevel(1);
+loop();
+</script>
 </body>
 </html>
-
